@@ -1,0 +1,1062 @@
+# Replit Storefront Build Instructions
+## shop.ecoshopguide.com - Eco Shop Guide Essentials Store
+
+---
+
+## PROJECT OVERVIEW
+
+**Goal:** Build a conversion-optimized storefront that reduces Pinterest → Purchase friction from 3 steps to 2 steps.
+
+**Tech Stack:**
+- Platform: Replit (Node.js/Next.js)
+- Payment: Stripe Checkout
+- Fulfillment: Shopify (backend inventory/orders)
+- Domain: shop.ecoshopguide.com
+- Design: Match existing Webflow aesthetic
+
+**Key Success Metrics:**
+- Single-click purchase experience
+- Trust signals visible above fold
+- AX-optimized for AI agents
+- Mobile-first responsive design
+- Page load < 2 seconds
+
+---
+
+## PHASE 1: REPLIT PROJECT SETUP
+
+### 1.1 Create Replit Project
+```
+Template: Next.js
+Project Name: eco-shop-storefront
+Node Version: 18+
+```
+
+### 1.2 Install Core Dependencies
+```bash
+npm install stripe @stripe/stripe-js
+npm install shopify-api-node
+npm install next-seo
+npm install framer-motion
+npm install react-hot-toast
+npm install @headlessui/react
+npm install tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+```
+
+### 1.3 Environment Variables (.env.local)
+```
+# Stripe
+STRIPE_SECRET_KEY=sk_live_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+
+# Shopify
+SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
+SHOPIFY_ADMIN_ACCESS_TOKEN=shpat_...
+SHOPIFY_STOREFRONT_ACCESS_TOKEN=...
+
+# Site Config
+NEXT_PUBLIC_SITE_URL=https://shop.ecoshopguide.com
+NEXT_PUBLIC_MAIN_SITE=https://ecoshopguide.com
+
+# Fulfillment Webhook
+SHOPIFY_WEBHOOK_SECRET=...
+```
+
+---
+
+## PHASE 2: DESIGN SYSTEM (MATCH WEBFLOW AESTHETIC)
+
+### 2.1 Color Palette (from your screenshots)
+```css
+/* tailwind.config.js colors */
+colors: {
+  primary: {
+    DEFAULT: '#2D5016', // Deep forest green
+    light: '#4A7C2C',
+    dark: '#1A3309'
+  },
+  earth: {
+    beige: '#F5F1E8',
+    sand: '#E8DCC4',
+    clay: '#C9B79C'
+  },
+  accent: {
+    gold: '#D4A373',
+    sage: '#9CA986'
+  },
+  neutral: {
+    50: '#FAFAF9',
+    900: '#1C1917'
+  }
+}
+```
+
+### 2.2 Typography (match your site)
+```css
+/* Match your clean, modern aesthetic */
+fontFamily: {
+  sans: ['Inter', 'system-ui', 'sans-serif'],
+  display: ['Playfair Display', 'serif'], // For headers
+}
+
+fontSize: {
+  'hero': '3.5rem',
+  'heading': '2.25rem',
+  'subheading': '1.5rem',
+  'body': '1rem',
+  'small': '0.875rem'
+}
+```
+
+### 2.3 Image Treatment
+- Full-bleed hero images (like your wellness spa shot)
+- Soft overlay gradients for text readability
+- Rounded corners on product cards (8px)
+- Subtle shadows on hover
+
+---
+
+## PHASE 3: STOREFRONT ARCHITECTURE
+
+### 3.1 Page Structure
+```
+/pages
+  /index.js                 # Main storefront (shop.ecoshopguide.com)
+  /api
+    /checkout.js            # Stripe Checkout Session
+    /webhooks
+      /stripe.js            # Payment confirmation
+      /shopify.js           # Order fulfillment
+  /success.js               # Post-purchase confirmation
+  /products/[slug].js       # Individual product pages (optional v2)
+```
+
+### 3.2 Component Structure
+```
+/components
+  /Layout
+    Header.jsx              # Logo + nav to main site
+    Footer.jsx              # Trust badges, contact
+  /Product
+    ProductGrid.jsx         # Main product display
+    ProductCard.jsx         # Individual product
+    QuickBuyButton.jsx      # One-click purchase
+    TrustBadges.jsx         # Verification carousel
+  /UI
+    LoadingSpinner.jsx
+    Toast.jsx
+    Modal.jsx
+```
+
+---
+
+## PHASE 4: SHOPIFY INTEGRATION
+
+### 4.1 Shopify Setup Requirements
+1. **Create Shopify Store** (if not exists)
+   - Plan: Basic ($39/mo) or Shopify ($105/mo)
+   - Install "Headless" sales channel
+   - Generate Storefront API access token
+
+2. **Product Setup in Shopify**
+   - Create 20-30 products with CJDropshipping
+   - Add high-quality images
+   - Set pricing with margin
+   - Add detailed descriptions
+   - Tag with categories: "wellness", "bedroom", "patio", etc.
+
+3. **Fulfillment Configuration**
+   - Connect CJDropshipping to Shopify
+   - Set up automatic order routing
+   - Configure shipping rates
+
+### 4.2 Shopify API Integration Code
+```javascript
+// /lib/shopify.js
+import Shopify from 'shopify-api-node';
+
+const shopify = new Shopify({
+  shopName: process.env.SHOPIFY_STORE_DOMAIN,
+  accessToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN,
+});
+
+export async function getProducts(limit = 30) {
+  try {
+    const products = await shopify.product.list({ limit });
+    return products.map(product => ({
+      id: product.id,
+      title: product.title,
+      description: product.body_html,
+      price: product.variants[0].price,
+      image: product.images[0]?.src,
+      handle: product.handle,
+      variantId: product.variants[0].id,
+      inventory: product.variants[0].inventory_quantity,
+      tags: product.tags.split(', ')
+    }));
+  } catch (error) {
+    console.error('Shopify API Error:', error);
+    return [];
+  }
+}
+
+export async function getProductByHandle(handle) {
+  const product = await shopify.product.list({ handle });
+  return product[0];
+}
+```
+
+### 4.3 Edge Function for Checkout
+```javascript
+// /pages/api/checkout.js
+import Stripe from 'stripe';
+import { getProductByHandle } from '../../lib/shopify';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { productHandle, quantity = 1 } = req.body;
+    
+    // Get product from Shopify
+    const product = await getProductByHandle(productHandle);
+    
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: product.title,
+            images: [product.images[0]?.src],
+            description: product.body_html.substring(0, 300),
+          },
+          unit_amount: Math.round(parseFloat(product.variants[0].price) * 100),
+        },
+        quantity,
+      }],
+      mode: 'payment',
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}`,
+      metadata: {
+        shopify_product_id: product.id.toString(),
+        shopify_variant_id: product.variants[0].id.toString(),
+      },
+      shipping_address_collection: {
+        allowed_countries: ['US', 'CA', 'GB', 'AU'],
+      },
+    });
+
+    res.status(200).json({ sessionId: session.id, url: session.url });
+  } catch (error) {
+    console.error('Checkout error:', error);
+    res.status(500).json({ error: 'Checkout failed' });
+  }
+}
+```
+
+### 4.4 Stripe Webhook Handler
+```javascript
+// /pages/api/webhooks/stripe.js
+import { buffer } from 'micro';
+import Stripe from 'stripe';
+import Shopify from 'shopify-api-node';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const shopify = new Shopify({
+  shopName: process.env.SHOPIFY_STORE_DOMAIN,
+  accessToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN,
+});
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).end();
+  }
+
+  const buf = await buffer(req);
+  const sig = req.headers['stripe-signature'];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      buf,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle successful payment
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+
+    // Create order in Shopify for fulfillment
+    try {
+      const order = await shopify.order.create({
+        line_items: [{
+          variant_id: session.metadata.shopify_variant_id,
+          quantity: 1,
+        }],
+        customer: {
+          email: session.customer_details.email,
+        },
+        shipping_address: {
+          first_name: session.shipping_details.name.split(' ')[0],
+          last_name: session.shipping_details.name.split(' ')[1] || '',
+          address1: session.shipping_details.address.line1,
+          address2: session.shipping_details.address.line2,
+          city: session.shipping_details.address.city,
+          province: session.shipping_details.address.state,
+          country: session.shipping_details.address.country,
+          zip: session.shipping_details.address.postal_code,
+        },
+        financial_status: 'paid',
+        fulfillment_status: 'unfulfilled',
+        note: 'Order from shop.ecoshopguide.com via Stripe',
+      });
+
+      console.log('Shopify order created:', order.id);
+    } catch (error) {
+      console.error('Failed to create Shopify order:', error);
+      // Still return 200 to acknowledge receipt of webhook
+    }
+  }
+
+  res.status(200).json({ received: true });
+}
+```
+
+---
+
+## PHASE 5: FRONTEND IMPLEMENTATION
+
+### 5.1 Main Storefront Page
+```jsx
+// /pages/index.js
+import { useState } from 'react';
+import Head from 'next/head';
+import { getProducts } from '../lib/shopify';
+import ProductGrid from '../components/Product/ProductGrid';
+import TrustBadges from '../components/Product/TrustBadges';
+import { motion } from 'framer-motion';
+
+export default function Storefront({ products }) {
+  const [filter, setFilter] = useState('all');
+
+  const filteredProducts = filter === 'all' 
+    ? products 
+    : products.filter(p => p.tags.includes(filter));
+
+  return (
+    <>
+      <Head>
+        <title>Eco Shop Guide Essentials | Sustainable Home & Wellness Products</title>
+        <meta name="description" content="Shop curated eco-friendly home decor, wellness essentials, and sustainable living products. Conscious choices for a greener lifestyle." />
+        <meta name="keywords" content="eco friendly products, sustainable home decor, wellness essentials, green living, eco shop, sustainable gifts, organic home goods" />
+        
+        {/* Open Graph for Social Sharing */}
+        <meta property="og:title" content="Eco Shop Guide Essentials" />
+        <meta property="og:description" content="Curated sustainable products for your home and wellness" />
+        <meta property="og:image" content="https://shop.ecoshopguide.com/og-image.jpg" />
+        <meta property="og:type" content="website" />
+        
+        {/* Schema.org for AI Agents */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Store",
+            "name": "Eco Shop Guide Essentials",
+            "description": "Curated sustainable home and wellness products",
+            "url": "https://shop.ecoshopguide.com",
+            "image": "https://shop.ecoshopguide.com/logo.png",
+            "priceRange": "$10-$200",
+            "paymentAccepted": "Credit Card, Debit Card",
+            "currenciesAccepted": "USD",
+            "areaServed": {
+              "@type": "Country",
+              "name": "United States"
+            }
+          })}
+        </script>
+      </Head>
+
+      {/* Hero Section - Matches your aesthetic */}
+      <section className="relative h-[60vh] min-h-[500px]">
+        <div className="absolute inset-0">
+          <img 
+            src="/hero-wellness.jpg" 
+            alt="Sustainable wellness space"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/60" />
+        </div>
+        
+        <div className="relative h-full flex flex-col justify-center items-center text-white px-6">
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="font-display text-5xl md:text-6xl font-bold text-center mb-4"
+          >
+            Sustainable Styles
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-xl md:text-2xl text-center max-w-2xl mb-8"
+          >
+            Curated eco-friendly essentials for your home and wellness
+          </motion.p>
+          
+          {/* Trust Signals - Above Fold */}
+          <TrustBadges />
+        </div>
+      </section>
+
+      {/* Filter Navigation */}
+      <nav className="sticky top-0 bg-white border-b border-earth-sand z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex gap-4 overflow-x-auto">
+            {['all', 'wellness', 'bedroom', 'patio', 'home-decor'].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setFilter(cat)}
+                className={`px-6 py-2 rounded-full whitespace-nowrap transition-all ${
+                  filter === cat 
+                    ? 'bg-primary text-white' 
+                    : 'bg-earth-beige text-neutral-900 hover:bg-earth-sand'
+                }`}
+              >
+                {cat.charAt(0).toUpperCase() + cat.slice(1).replace('-', ' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      {/* Product Grid */}
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <ProductGrid products={filteredProducts} />
+      </main>
+
+      {/* Trust Section - Reinforcement */}
+      <section className="bg-earth-beige py-16">
+        <div className="max-w-7xl mx-auto px-6">
+          <h2 className="font-display text-3xl text-center mb-12">Why Shop With Us</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="text-4xl mb-4">🌱</div>
+              <h3 className="font-semibold text-xl mb-2">Eco-Verified</h3>
+              <p className="text-neutral-700">Every product vetted for sustainability and environmental impact</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-4">🔒</div>
+              <h3 className="font-semibold text-xl mb-2">Secure Checkout</h3>
+              <p className="text-neutral-700">Encrypted payments via Stripe. Your data is safe with us.</p>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl mb-4">📦</div>
+              <h3 className="font-semibold text-xl mb-2">Fast Shipping</h3>
+              <p className="text-neutral-700">Orders fulfilled within 2-3 business days with tracking</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+export async function getStaticProps() {
+  const products = await getProducts(30);
+  
+  return {
+    props: { products },
+    revalidate: 3600, // Regenerate page every hour
+  };
+}
+```
+
+### 5.2 Product Card Component
+```jsx
+// /components/Product/ProductCard.jsx
+import { useState } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import toast from 'react-hot-toast';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+
+export default function ProductCard({ product }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleQuickBuy = async () => {
+    setLoading(true);
+    toast.loading('Redirecting to checkout...');
+
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          productHandle: product.handle,
+          quantity: 1 
+        }),
+      });
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe Checkout
+      window.location.href = url;
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Checkout failed. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <article 
+      className="group bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
+      itemScope 
+      itemType="https://schema.org/Product"
+    >
+      {/* Product Image */}
+      <div className="relative aspect-square overflow-hidden">
+        <img
+          src={product.image}
+          alt={product.title}
+          itemProp="image"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        
+        {/* Quick Buy Overlay */}
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+          <button
+            onClick={handleQuickBuy}
+            disabled={loading}
+            className="bg-white text-primary px-8 py-3 rounded-full font-semibold hover:bg-earth-beige transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Processing...' : 'Quick Buy'}
+          </button>
+        </div>
+
+        {/* Eco Badge */}
+        {product.tags.includes('eco-certified') && (
+          <div className="absolute top-4 right-4 bg-primary text-white px-3 py-1 rounded-full text-sm font-semibold">
+            🌱 Eco-Certified
+          </div>
+        )}
+      </div>
+
+      {/* Product Info */}
+      <div className="p-4">
+        <h3 
+          className="font-semibold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors"
+          itemProp="name"
+        >
+          {product.title}
+        </h3>
+        
+        <p 
+          className="text-neutral-600 text-sm mb-3 line-clamp-2"
+          itemProp="description"
+          dangerouslySetInnerHTML={{ __html: product.description }}
+        />
+
+        <div className="flex items-center justify-between">
+          <span 
+            className="text-2xl font-bold text-primary"
+            itemProp="offers"
+            itemScope
+            itemType="https://schema.org/Offer"
+          >
+            <span itemProp="price">${product.price}</span>
+            <meta itemProp="priceCurrency" content="USD" />
+          </span>
+
+          <button
+            onClick={handleQuickBuy}
+            disabled={loading}
+            className="bg-primary text-white px-6 py-2 rounded-full hover:bg-primary-dark transition-colors disabled:opacity-50"
+          >
+            Buy Now
+          </button>
+        </div>
+      </div>
+
+      {/* Hidden Schema Data for AI Agents */}
+      <meta itemProp="brand" content="Eco Shop Guide" />
+      <meta itemProp="category" content={product.tags[0]} />
+      <link itemProp="url" href={`https://shop.ecoshopguide.com/products/${product.handle}`} />
+    </article>
+  );
+}
+```
+
+### 5.3 Trust Badges Carousel
+```jsx
+// /components/Product/TrustBadges.jsx
+import { motion } from 'framer-motion';
+
+const badges = [
+  { icon: '✓', text: 'Secure Checkout', subtext: 'Stripe Protected' },
+  { icon: '🌱', text: 'Eco-Verified', subtext: 'Sustainability Certified' },
+  { icon: '📦', text: 'Fast Shipping', subtext: '2-3 Day Fulfillment' },
+  { icon: '↩️', text: 'Easy Returns', subtext: '30-Day Guarantee' },
+  { icon: '⭐', text: '500+ Reviews', subtext: '4.8 Average Rating' },
+];
+
+export default function TrustBadges() {
+  return (
+    <div className="flex gap-6 overflow-x-auto py-4 px-6">
+      {badges.map((badge, idx) => (
+        <motion.div
+          key={idx}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: idx * 0.1 }}
+          className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md whitespace-nowrap"
+        >
+          <span className="text-2xl">{badge.icon}</span>
+          <div>
+            <div className="font-semibold text-sm">{badge.text}</div>
+            <div className="text-xs text-neutral-600">{badge.subtext}</div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## PHASE 6: AX OPTIMIZATION (AGENTIC EXPERIENCE)
+
+### 6.1 Structured Data for AI Agents
+```jsx
+// Add to every product page and main storefront
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Eco Shop Guide Essentials",
+  "description": "Shop curated sustainable home and wellness products",
+  "url": "https://shop.ecoshopguide.com",
+  "mainEntity": {
+    "@type": "ItemList",
+    "itemListElement": [
+      {
+        "@type": "Product",
+        "position": 1,
+        "name": "Product Name",
+        "image": "https://...",
+        "description": "Product description",
+        "brand": {
+          "@type": "Brand",
+          "name": "Eco Shop Guide"
+        },
+        "offers": {
+          "@type": "Offer",
+          "url": "https://shop.ecoshopguide.com/products/...",
+          "priceCurrency": "USD",
+          "price": "29.99",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": "Eco Shop Guide"
+          }
+        }
+      }
+    ]
+  },
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://shop.ecoshopguide.com/search?q={search_term}",
+    "query-input": "required name=search_term"
+  }
+}
+</script>
+```
+
+### 6.2 Meta Tags for Agent Discovery
+```html
+<!-- Add to <Head> component -->
+<meta name="robots" content="index, follow" />
+<meta name="googlebot" content="index, follow" />
+
+<!-- Agent-Friendly Categories -->
+<meta name="product-categories" content="sustainable home decor, eco wellness, green living, organic products" />
+<meta name="price-range" content="10-200 USD" />
+<meta name="shipping-countries" content="US, CA, UK, AU" />
+<meta name="return-policy" content="30-day money back guarantee" />
+
+<!-- Semantic Headers for Agent Parsing -->
+<meta name="item-type" content="e-commerce storefront" />
+<meta name="fulfillment-time" content="2-3 business days" />
+<meta name="payment-methods" content="Visa, Mastercard, American Express, Discover" />
+```
+
+### 6.3 Semantic HTML Structure
+```html
+<!-- Use semantic HTML5 throughout -->
+<header role="banner">
+  <nav role="navigation" aria-label="Main navigation">
+    <!-- Navigation items -->
+  </nav>
+</header>
+
+<main role="main" aria-label="Product catalog">
+  <section aria-labelledby="products-heading">
+    <h2 id="products-heading">Our Sustainable Essentials</h2>
+    <ul role="list" aria-label="Product list">
+      <!-- Product items -->
+    </ul>
+  </section>
+</main>
+
+<footer role="contentinfo">
+  <!-- Footer content -->
+</footer>
+```
+
+### 6.4 API Endpoint for Agent Queries
+```javascript
+// /pages/api/products.json
+// Allow AI agents to query product catalog directly
+export default async function handler(req, res) {
+  const products = await getProducts();
+  
+  res.status(200).json({
+    store: {
+      name: "Eco Shop Guide Essentials",
+      url: "https://shop.ecoshopguide.com",
+      description: "Curated sustainable products for home and wellness",
+      categories: ["wellness", "bedroom", "home-decor", "patio"],
+      shipping: {
+        countries: ["US", "CA", "UK", "AU"],
+        fulfillmentTime: "2-3 business days"
+      },
+      returns: "30-day money back guarantee"
+    },
+    products: products.map(p => ({
+      id: p.id,
+      name: p.title,
+      description: p.description,
+      price: p.price,
+      currency: "USD",
+      image: p.image,
+      url: `https://shop.ecoshopguide.com/products/${p.handle}`,
+      category: p.tags[0],
+      inStock: p.inventory > 0,
+      eco_certified: p.tags.includes('eco-certified')
+    }))
+  });
+}
+```
+
+---
+
+## PHASE 7: DEPLOYMENT & DNS SETUP
+
+### 7.1 Deploy to Replit
+1. Connect to GitHub for version control
+2. Enable "Always On" for production
+3. Set environment variables in Replit Secrets
+4. Deploy from main branch
+
+### 7.2 Domain Configuration
+```
+DNS Records (in your domain provider):
+Type: CNAME
+Host: shop
+Value: [your-replit-app].replit.app
+TTL: 3600
+
+Or use Replit's custom domain feature:
+- Go to Replit project settings
+- Click "Custom Domain"
+- Enter: shop.ecoshopguide.com
+- Follow verification steps
+```
+
+### 7.3 SSL Certificate
+- Replit handles SSL automatically for custom domains
+- Verify HTTPS is working: https://shop.ecoshopguide.com
+
+### 7.4 Stripe Webhook Configuration
+```
+1. Go to Stripe Dashboard → Webhooks
+2. Add endpoint: https://shop.ecoshopguide.com/api/webhooks/stripe
+3. Select events:
+   - checkout.session.completed
+   - payment_intent.succeeded
+4. Copy webhook signing secret to .env
+```
+
+---
+
+## PHASE 8: TESTING CHECKLIST
+
+### 8.1 Functional Testing
+- [ ] Products load from Shopify correctly
+- [ ] Filtering by category works
+- [ ] Quick Buy button triggers Stripe Checkout
+- [ ] Stripe payment processes successfully
+- [ ] Order creates in Shopify after payment
+- [ ] Webhook receives payment confirmation
+- [ ] Success page displays after purchase
+- [ ] Email confirmation sent to customer
+
+### 8.2 Design Testing
+- [ ] Mobile responsive (test on iPhone/Android)
+- [ ] Images load quickly (<2s)
+- [ ] Hero section matches Webflow aesthetic
+- [ ] Trust badges visible above fold
+- [ ] Product cards hover effects work
+- [ ] Loading states display properly
+
+### 8.3 AX Testing
+- [ ] Schema.org validation passes (Google Rich Results Test)
+- [ ] Meta tags present in page source
+- [ ] Semantic HTML validated
+- [ ] /api/products.json returns proper JSON
+- [ ] OpenGraph images display in social sharing
+
+### 8.4 Performance Testing
+- [ ] Lighthouse score >90 (Performance)
+- [ ] Core Web Vitals pass
+- [ ] Images optimized (WebP format)
+- [ ] Page load <2 seconds
+
+---
+
+## PHASE 9: POST-LAUNCH
+
+### 9.1 Analytics Setup
+```javascript
+// Add Google Analytics 4
+// /pages/_app.js
+import Script from 'next/script'
+
+export default function App({ Component, pageProps }) {
+  return (
+    <>
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-XXXXXXXXXX');
+        `}
+      </Script>
+      <Component {...pageProps} />
+    </>
+  )
+}
+```
+
+### 9.2 Monitoring
+- Set up Stripe webhook monitoring
+- Configure error tracking (Sentry)
+- Monitor Shopify order fulfillment
+- Track conversion rates
+
+### 9.3 Pinterest Integration
+- Update Pinterest pins to point to shop.ecoshopguide.com
+- Add Pinterest Tag for conversion tracking
+- Create product pins for each item
+
+---
+
+## COST BREAKDOWN
+
+### Monthly Costs:
+- Replit (Always On): $7-20/mo
+- Shopify (Basic): $39/mo
+- Stripe: 2.9% + $0.30 per transaction
+- Domain: ~$1/mo (if new)
+- **Total Fixed: ~$47-60/mo**
+
+### Savings vs Webflow:
+- Webflow: $29-49/mo
+- Net change: Similar costs, better functionality
+
+---
+
+## SUCCESS METRICS (Track Weekly)
+
+1. **Conversion Rate:** Target 3-5%
+2. **Average Order Value:** Target $40-60
+3. **Page Load Time:** <2 seconds
+4. **Bounce Rate:** <50%
+5. **Add to Cart Rate:** >10%
+6. **Checkout Abandonment:** <70%
+
+---
+
+## SUPPORT RESOURCES
+
+### Documentation:
+- [Shopify Storefront API](https://shopify.dev/docs/api/storefront)
+- [Stripe Checkout Docs](https://stripe.com/docs/payments/checkout)
+- [Next.js Deployment](https://nextjs.org/docs/deployment)
+- [Schema.org Product Markup](https://schema.org/Product)
+
+### Replit Agent Prompts:
+When building in Replit, use these prompts:
+
+**Initial Setup:**
+"Create a Next.js e-commerce storefront with Shopify product integration and Stripe checkout. Include Tailwind CSS styling with earth tone color palette."
+
+**Component Building:**
+"Build a product card component with hover overlay, quick buy button, and schema.org markup for AI agents."
+
+**API Integration:**
+"Create an API route that fetches products from Shopify Storefront API and creates Stripe checkout sessions."
+
+---
+
+## LAUNCH TIMELINE
+
+**Week 1:** Setup + Design
+- Days 1-2: Replit project setup, Shopify configuration
+- Days 3-5: Build main storefront page, product components
+- Days 6-7: Styling to match Webflow aesthetic
+
+**Week 2:** Integration + Testing
+- Days 1-3: Stripe/Shopify integration, webhooks
+- Days 4-5: AX optimization, schema markup
+- Days 6-7: Testing, bug fixes
+
+**Week 3:** Deployment + Launch
+- Days 1-2: Deploy to production, DNS setup
+- Days 3-4: Final testing, soft launch
+- Days 5-7: Pinterest redirect, monitor conversions
+
+---
+
+## TROUBLESHOOTING
+
+### Common Issues:
+
+**"Products not loading"**
+- Check Shopify API credentials
+- Verify Storefront API access enabled
+- Check network tab for API errors
+
+**"Stripe checkout fails"**
+- Verify Stripe keys (test vs live)
+- Check webhook signing secret
+- Monitor Stripe dashboard for errors
+
+**"Orders not appearing in Shopify"**
+- Verify webhook received by checking logs
+- Check Shopify API permissions
+- Ensure variant IDs match
+
+**"Images loading slowly"**
+- Optimize images with Next.js Image component
+- Use WebP format
+- Implement lazy loading
+
+---
+
+## NEXT STEPS AFTER LAUNCH
+
+1. **Week 1 Post-Launch:**
+   - Monitor first 10 orders closely
+   - Fix any UX issues
+   - Gather customer feedback
+
+2. **Month 1:**
+   - A/B test product layouts
+   - Optimize product descriptions
+   - Add customer reviews section
+
+3. **Month 2:**
+   - Expand product catalog to 50 items
+   - Add email marketing integration
+   - Implement abandoned cart recovery
+
+4. **Month 3:**
+   - Build blog integration (link back to main site)
+   - Add product recommendation engine
+   - Consider subscription products
+
+---
+
+## REPLIT AGENT STARTER PROMPT
+
+Copy/paste this into Replit Agent to kickstart the build:
+
+```
+Build an e-commerce storefront for shop.ecoshopguide.com with:
+
+TECH STACK:
+- Next.js 13+ with App Router
+- Tailwind CSS (earth tone palette: forest green #2D5016, beige #F5F1E8, sand #E8DCC4)
+- Shopify Storefront API integration
+- Stripe Checkout payment processing
+- Framer Motion animations
+
+FEATURES REQUIRED:
+1. Hero section with full-width jungle spa image and overlay
+2. Product grid with filter navigation (wellness, bedroom, patio, home-decor)
+3. Product cards with hover overlay and "Quick Buy" button
+4. One-click Stripe Checkout integration
+5. Trust badges carousel above fold
+6. Mobile-first responsive design
+7. Schema.org markup for AI agent discovery
+8. API routes for checkout and webhooks
+
+DESIGN AESTHETIC:
+- Match Webflow style: clean, modern, earth tones
+- Full-bleed hero images with gradient overlays
+- Rounded corners (8px) on cards
+- Subtle hover effects (scale, shadow)
+- Typography: Inter (body), Playfair Display (headers)
+
+INTEGRATIONS:
+- Fetch products from Shopify via Storefront API
+- Create Stripe checkout sessions for purchases
+- Handle payment webhooks to create Shopify orders
+- Set up proper error handling and loading states
+
+START WITH:
+1. Project structure setup with required dependencies
+2. Environment variable configuration
+3. Shopify API connection utilities
+4. Main storefront page with hero and product grid
+5. Stripe checkout API route
+
+Let's build this step by step, ensuring production-ready code with proper error handling.
+```
+
+---
+
+**END OF INSTRUCTIONS**
+
+Ready to build when you are! 🚀

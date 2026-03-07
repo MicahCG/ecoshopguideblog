@@ -1,0 +1,129 @@
+declare global {
+  interface Window {
+    gtag: (
+      command: 'event' | 'config' | 'js',
+      action: string,
+      params?: Record<string, unknown>
+    ) => void;
+    dataLayer: unknown[];
+    __ecoEventLog: Array<{ ts: number; eventName: string; params: Record<string, unknown> }>;
+    ecoDumpEvents: () => void;
+  }
+}
+
+// Initialize ring buffer
+if (typeof window !== 'undefined') {
+  window.__ecoEventLog = window.__ecoEventLog || [];
+}
+
+// Check if debug mode is enabled
+function isDebugMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  const urlParams = new URLSearchParams(window.location.search);
+  return import.meta.env.DEV || urlParams.get('ga_debug') === '1';
+}
+
+// UTM parameters storage
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const;
+
+function initUtmTracking(): void {
+  if (typeof window === 'undefined') return;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasUtm = UTM_KEYS.some(key => urlParams.has(key));
+
+  if (hasUtm) {
+    UTM_KEYS.forEach(key => {
+      const value = urlParams.get(key);
+      if (value) {
+        sessionStorage.setItem(key, value);
+      }
+    });
+  }
+}
+
+function getUtmParams(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+
+  const params: Record<string, string> = {};
+  UTM_KEYS.forEach(key => {
+    const value = sessionStorage.getItem(key);
+    if (value) {
+      params[key] = value;
+    }
+  });
+  return params;
+}
+
+function getAttributionParams(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+
+  return {
+    page_path: window.location.pathname,
+    ...(document.referrer ? { referrer: document.referrer } : {}),
+    ...getUtmParams(),
+  };
+}
+
+function addToRingBuffer(eventName: string, params: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return;
+
+  window.__ecoEventLog.push({ ts: Date.now(), eventName, params });
+
+  if (window.__ecoEventLog.length > 50) {
+    window.__ecoEventLog.shift();
+  }
+}
+
+// Dump events helper
+if (typeof window !== 'undefined') {
+  window.ecoDumpEvents = () => {
+    const events = window.__ecoEventLog.slice(-20);
+    console.table(events.map(e => ({
+      time: new Date(e.ts).toLocaleTimeString(),
+      event: e.eventName,
+      ...e.params,
+    })));
+  };
+}
+
+// Core tracking function
+export function ecoTrack(eventName: string, params: Record<string, unknown> = {}): void {
+  const fullParams = {
+    ...params,
+    ...getAttributionParams(),
+  };
+
+  addToRingBuffer(eventName, fullParams);
+
+  if (isDebugMode()) {
+    console.log('[GA4]', eventName, fullParams);
+  }
+
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', eventName, fullParams);
+  }
+}
+
+// Initialize analytics
+export function initAnalytics(): void {
+  if (typeof window === 'undefined') return;
+  initUtmTracking();
+  console.log('[GA4] ecoTrack ready', { debug: isDebugMode() });
+}
+
+// Newsletter tracking
+export function trackNewsletterSignup(source: 'homepage_section' | 'exit_intent_popup'): void {
+  ecoTrack('newsletter_signup', {
+    signup_source: source,
+  });
+
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', 'generate_lead', {
+      currency: 'USD',
+      value: 0.5,
+      signup_source: source,
+      ...getAttributionParams(),
+    });
+  }
+}

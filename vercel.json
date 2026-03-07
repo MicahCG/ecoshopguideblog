@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "dist/public",
+  "rewrites": [
+    { "source": "/api/blogs/:slug", "destination": "/api/blogs?slug=:slug" },
+    { "source": "/api/blogs", "destination": "/api/blogs" },
+    { "source": "/api/products/:productId/reviews", "destination": "/api/reviews?productId=:productId" },
+    { "source": "/api/reviews/recent", "destination": "/api/reviews" },
+    { "source": "/api/products", "destination": "/api/products" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

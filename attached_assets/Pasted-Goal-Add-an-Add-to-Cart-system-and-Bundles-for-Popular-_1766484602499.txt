@@ -1,0 +1,159 @@
+Goal: Add an “Add to Cart” system and “Bundles for Popular Moments” on collection pages. Bundles are curated sets of 3 products for specific moments (dorm move-in, first apartment styling, wedding guest-ready, etc). Users should be able to add single items to cart, add a full bundle to cart, or “Buy Bundle Now” which creates a Stripe Checkout session containing all bundle items at once. We should also show a bundle discount and the percent savings vs buying items individually.
+
+Constraints:
+	•	Keep it simple and reliable. Minimal new dependencies.
+	•	Cart should persist across page navigation and refresh using localStorage.
+	•	The bundle discount is applied in Stripe so the checkout total matches the site.
+	•	We need analytics events (GA4) for bundle impressions, bundle add to cart, and bundle checkout starts.
+
+Deliverables:
+	1.	Data model for cart and bundles
+	2.	UI changes on collection pages
+	3.	Cart UI (slide-over or modal) with quantity editing, remove, subtotal, and checkout
+	4.	Stripe changes to support multi-item checkout (single product checkout still works)
+	5.	GA4 tracking for new events
+	6.	Testing checklist
+
+Implementation details:
+
+A. Cart
+	•	Create a cart store using React Context or a lightweight custom hook.
+	•	Cart item schema:
+	•	product_id: string
+	•	variant_id?: string (if variants exist)
+	•	name: string
+	•	price: number (unit price shown on site)
+	•	image_url: string
+	•	quantity: number
+	•	collection_slug?: string
+	•	source: 'single' | 'bundle'
+	•	bundle_id?: string
+	•	Persist cart to localStorage under key ecoshopguide_cart_v1.
+	•	Provide functions: addItem, removeItem, updateQty, clearCart, addBundle(bundle).
+
+B. Bundles
+	•	Add a bundles.ts config file that maps collection_slug to an array of bundle definitions.
+	•	Bundle schema:
+	•	bundle_id: string (unique)
+	•	title: string (moment headline)
+	•	description: string (1 sentence)
+	•	collection_slug: string
+	•	product_ids: string[] length 3
+	•	discount_type: 'percent' | 'fixed'
+	•	discount_value: number (ex: 10 for 10% off)
+	•	Bundle products must be pulled from existing product catalog data. If a product id is missing, the bundle should gracefully not render.
+
+Add bundles for these collections:
+	•	wedding
+	•	“Guest-ready glow” (3 items, warm lighting + textiles)
+	•	“Eco table moment” (3 items, decor accents)
+	•	small-spaces
+	•	“First apartment cozy corner” (3 items, textiles + lighting)
+	•	“Tiny living room upgrade” (3 items, rug + throw + pillow)
+	•	home
+	•	“Warm entryway refresh” (3 items)
+	•	“Sunday reset essentials” (3 items)
+	•	dorm
+	•	“Move-in essentials starter set” (3 items)
+	•	“Cozy study nook” (3 items)
+
+Use a default discount for now: 10% off bundles. Show “Save 10%” and compute “You save $X (Y%)”.
+
+C. Collection page UI
+On each collection page:
+	•	Add a new section near the top after the intro:
+	•	Heading: “Bundles for Popular Moments”
+	•	Render bundle cards in a 2 column grid on desktop, 1 column on mobile.
+Each bundle card:
+	•	Title and description
+	•	Show the 3 included product thumbnails and names
+	•	Show:
+	•	“Individually: $SUM”
+	•	“Bundle: $DISCOUNTED_SUM”
+	•	“You save: $SAVE_AMOUNT (SAVE_PERCENT%)”
+Buttons:
+	•	Primary: “Add Bundle to Cart”
+	•	Secondary: “Buy Bundle Now”
+Also on each product card in collections:
+	•	Add an “Add to Cart” button (in addition to existing Buy button). Keep Buy button for direct checkout of a single item if you want.
+	•	If the product is already in cart, show “In cart” state or allow increasing qty.
+
+D. Cart UI
+	•	Add a cart icon in header with item count badge.
+	•	Clicking opens a slide-over cart panel.
+	•	Cart panel shows line items, qty controls, remove, subtotal.
+	•	Add a CTA: “Checkout” which creates a Stripe session for all items in cart.
+	•	If cart contains bundle items, show “Bundle applied” line under relevant items or show a small badge.
+
+E. Stripe checkout changes
+We currently have POST /api/checkout expecting a single product.
+Update to support both:
+	1.	Single item checkout: existing behavior remains
+	2.	Cart checkout: accepts an array of items and optional bundle discount logic
+
+API proposal:
+	•	POST /api/checkout
+	•	Body can be:
+	•	{ mode: 'single', product_id, variant_id?, quantity }
+	•	{ mode: 'cart', items: [{ product_id, variant_id?, quantity, bundle_id? }], bundle_discounts?: [{ bundle_id, discount_type, discount_value }] }
+
+Server responsibilities:
+	•	Validate product ids and pricing from server-side canonical product data (do not trust client prices).
+	•	Build line_items for Stripe Checkout session with correct quantities.
+	•	Apply bundle discount:
+	•	Option 1: use Stripe Coupons (percent off) and apply if cart contains a full bundle set.
+	•	Option 2: use Stripe Checkout “discounts” with a coupon created in Stripe Dashboard (like BUNDLE10) and apply once per order if at least one bundle is present.
+Start with simple approach:
+	•	If cart contains any bundle items, apply 10% coupon to entire order.
+	•	Later we can refine to bundle-specific discounting.
+
+Return { url } and client redirects.
+
+Also add Stripe success and cancel URLs to return to site and clear cart on success page load.
+
+F. Analytics (GA4)
+We already have GA4 installed via gtag and some events in place. Add these events:
+	•	bundle_section_view when “Bundles for Popular Moments” enters viewport with params:
+	•	collection_slug
+	•	bundle_impression when a bundle card enters viewport with params:
+	•	bundle_id, collection_slug
+	•	bundle_add_to_cart when user clicks Add Bundle to Cart with params:
+	•	bundle_id, collection_slug, bundle_value
+	•	cart_view when cart drawer opens with params:
+	•	cart_value, items_count
+	•	cart_checkout_start when user clicks Checkout with params:
+	•	cart_value, items_count, has_bundle
+	•	bundle_buy_now_click when user clicks Buy Bundle Now with params:
+	•	bundle_id, collection_slug, bundle_value
+	•	add_to_cart for single product add with params:
+	•	product_id, collection_slug, price
+	•	remove_from_cart similarly
+
+Also implement a helper gaTrack(eventName, params) that:
+	•	checks typeof window !== 'undefined'
+	•	checks window.gtag exists
+	•	logs to console only in development mode with prefix [GA4] and JSON-safe payloads (avoid circular JSON errors)
+
+G. Build a funnel we can use
+Recommend GA4 funnel steps based on your events:
+	1.	collection_view
+	2.	bundle_section_view or bundle_impression
+	3.	bundle_add_to_cart or add_to_cart
+	4.	cart_checkout_start or bundle_buy_now_click
+	5.	Purchase will be tracked from Stripe webhook later, but for now use checkout_start as the last measurable step on-site.
+
+H. Testing checklist
+	•	Cart persists across refresh
+	•	Add/remove/update qty works
+	•	Bundle add adds 3 items with bundle_id
+	•	Buy Bundle Now triggers checkout with 3 line_items
+	•	Cart checkout triggers checkout with all cart items
+	•	Discount applied when bundle present
+	•	GA4 events fire and show in DebugView
+	•	No console errors, and GA helper never throws
+
+Now implement these changes end-to-end with clean TypeScript types, and provide a short summary of files changed and where to configure bundles.
+
+⸻
+
+If you want one extra “money move” to include: in each bundle card, add a tiny line like “Popular for: move-in week” or “Perfect for: first apartment”

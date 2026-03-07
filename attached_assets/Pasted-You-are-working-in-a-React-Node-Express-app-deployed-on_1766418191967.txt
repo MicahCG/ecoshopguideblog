@@ -1,0 +1,172 @@
+You are working in a React + Node/Express app deployed on Replit.
+Stripe Checkout uses a SERVER-CREATED session in server/routes.ts.
+
+Existing flow:
+- Client clicks “Buy Now”
+- Client POST /api/checkout with product/variant info
+- Server calls stripe.checkout.sessions.create(...)
+- Server returns the Stripe Checkout session URL to client
+- Client redirects window.location.href = data.url
+
+Goal:
+Implement a GA4 analytics layer that is:
+1) reliable (no missing events during redirects),
+2) debuggable (console logs + ring buffer + optional debug widget),
+3) correctly models the Stripe funnel with proper naming + tagging.
+
+We want a measurable funnel:
+collection_view
+-> product_impression
+-> product_click
+-> buy_click
+-> checkout_session_created (server)
+-> checkout_redirect (client)
+-> checkout_success OR checkout_cancel (return to our site)
+-> purchase (GA4 recommended ecommerce event)
+
+IMPORTANT:
+- Stripe Checkout is on stripe.com so we cannot fire events on that domain.
+- The observable Stripe steps are: redirect initiation + return success/cancel + server-confirmed purchase.
+- Do NOT expose Stripe secret keys client-side.
+
+A) Analytics utility (client)
+Create a client utility module (ex: src/lib/analytics.ts) that exports:
+- ecoTrack(eventName, params = {})
+- ecoEcomTrack(eventName, params = {}) (for GA4 recommended ecommerce events)
+
+Requirements:
+1) ecoTrack must safely no-op if window.gtag is missing.
+2) ecoTrack must call window.gtag('event', eventName, params).
+3) Debug logging:
+   - If NODE_ENV != 'production' OR URL has ?ga_debug=1
+   - console.log('[GA4]', eventName, params) WITHOUT JSON.stringify (avoid circular structure issues)
+4) Maintain ring buffer:
+   - window.__ecoEventLog = last 50 events
+   - each entry { ts, eventName, params }
+5) Provide helpers:
+   - window.ecoDumpEvents() prints last 20
+   - If ?ga_debug=1, render a small fixed widget showing last 10 events (eventName + key fields)
+
+B) UTM + attribution (client)
+On first landing:
+- read utm_source, utm_medium, utm_campaign, utm_content, utm_term
+- store in sessionStorage for the session
+Attach these to EVERY event.
+Also include:
+- page_path (location.pathname)
+- referrer (document.referrer if present)
+
+C) Core on-site events (client)
+Fire via ecoTrack:
+1) collection_view when a collection page loads:
+   params: collection_name, collection_slug
+
+2) product_impression when product card enters viewport (50%):
+   params: product_id, product_name, collection_name, price, currency
+
+3) product_click when product card clicked:
+   params: product_id, product_name, collection_name, price, currency
+
+4) buy_click when Buy Now clicked (before POST /api/checkout):
+   params: product_id, product_name, collection_name, price, currency, variant_id (if any)
+
+5) combo_section_view when curated combo section enters viewport:
+   params: combo_section_id, combo_section_name, collection_name
+
+Also fire GA4 recommended ecommerce events in parallel (for GA default reports):
+- view_item when product detail page viewed (if you have a product detail page)
+- select_item when product_click happens
+- begin_checkout on buy_click (or on checkout_redirect, pick ONE consistent moment)
+
+D) Stripe funnel events (server + client)
+We need correct naming and tagging for Stripe:
+
+1) Server: checkout_session_created
+In server/routes.ts inside POST /api/checkout after the Stripe session is created:
+- log a GA event server-side is optional; instead we should return the session_id to the client and also embed metadata in the session.
+
+Implement:
+- Include these in stripe.checkout.sessions.create:
+  - success_url = https://YOUR_DOMAIN/checkout/success?session_id={CHECKOUT_SESSION_ID}
+  - cancel_url  = https://YOUR_DOMAIN/checkout/cancel?session_id={CHECKOUT_SESSION_ID}
+  - metadata: product_id, product_name, collection_name, price, currency, variant_id (if applicable), utm_* if you pass them from client, and an internal click_id (random UUID stored client-side)
+- Update the /api/checkout response to include BOTH:
+  { url: session.url, session_id: session.id }
+If currently only url is returned, add session_id.
+
+2) Client: checkout_redirect (reliable dispatch before leaving site)
+After /api/checkout returns and immediately before redirect:
+- ecoTrack('checkout_redirect', { session_id, product_id, product_name, collection_name, price, currency, click_id, utm_* })
+- Use gtag event_callback to ensure dispatch:
+  window.gtag('event', 'checkout_redirect', { ...params, event_callback: () => redirectOnce(), event_timeout: 500 })
+- redirectOnce must guard against double navigation.
+
+Also: record a fallback breadcrumb in sessionStorage:
+- sessionStorage.setItem('last_checkout_session_id', session_id)
+- sessionStorage.setItem('last_checkout_context', JSON.stringify({product info + utm + click_id})) but only stringify SAFE objects (no React nodes, no DOM)
+
+E) Return pages + purchase tracking (client + server)
+Create routes/pages on our domain:
+- /checkout/success
+- /checkout/cancel
+
+On /checkout/cancel page load:
+- read session_id from query param or sessionStorage fallback
+- ecoTrack('checkout_cancel', { session_id, ...context })
+- also fire GA4 begin_checkout? NO, only cancel.
+
+On /checkout/success page load:
+We want a TRUE purchase event using Stripe-confirmed totals.
+Implement an endpoint:
+GET /api/checkout/session?session_id=cs_...
+Server:
+- uses Stripe SDK to retrieve the session and line items (securely)
+- returns: { session_id, currency, amount_total, items: [{ item_id, item_name, price, quantity }], payment_status }
+Client success page:
+- call /api/checkout/session to fetch details
+- if payment_status indicates paid:
+  - fire GA4 recommended 'purchase':
+    ecoEcomTrack('purchase', {
+      transaction_id: session_id,
+      value: amount_total/100,
+      currency,
+      items
+    })
+  - also ecoTrack('checkout_success', { session_id, value, currency, item_count })
+- if not paid:
+  - ecoTrack('checkout_success_unpaid', { session_id, payment_status })
+
+F) Fix current debugging problem: no console logs + track function missing
+Right now the site shows window.gtag and dataLayer activity, but window.trackEvent / window.gaTrackEvent are undefined.
+Implement ecoTrack and ensure it is imported/used in:
+- collection pages
+- product cards
+- buy button flow
+So console logs appear in dev and/or when ?ga_debug=1.
+
+Also:
+- do NOT stringify console payloads.
+- ignore unrelated console errors from extensions/wallets.
+- add a clear console banner once analytics is initialized:
+  console.log('[GA4] ecoTrack ready', { debug: boolean })
+
+G) Deliverables
+1) Implement all above.
+2) Tell me exactly which files changed.
+3) Provide code diffs for:
+   - analytics utility
+   - product card impression/click tracking
+   - Buy Now handler including checkout_redirect event_callback guard
+   - server/routes.ts stripe session creation (success_url/cancel_url/metadata + return session_id)
+   - new success/cancel pages
+   - new /api/checkout/session endpoint
+4) Provide a test plan:
+   - How to verify in browser console + DebugView
+   - How to simulate a checkout cancel
+   - How to simulate success (test mode)
+   - Where to see purchase in GA4
+
+Naming conventions:
+- snake_case custom events: collection_view, product_impression, product_click, buy_click, checkout_redirect, checkout_success, checkout_cancel
+- GA4 recommended ecommerce events: select_item, begin_checkout, purchase
+- Always attach: page_path, utm_* (if present), click_id, session_id (when known)

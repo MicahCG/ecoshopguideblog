@@ -1,0 +1,102 @@
+You are a senior front end designer and engineer updating EcoShopGuide's blog home page layout.
+
+We already have a working version of visual cards with image backgrounds, category tags (like "Home Decor" and "Wedding"), and titles overlaid on top. This is close to what we want on mobile, but the desktop layout looks awkward and not like a clean masonry grid.
+
+Your task is to refine the responsive layout while keeping the existing visual styling, and make the grid feel balanced and enjoyable to browse.
+
+Goals
+
+1. Mobile should be simple and readable.
+2. Tablet and desktop should use a centered masonry style grid that feels like a Pinterest board.
+3. The hero article at the top should be clearly featured but not make the rest of the layout feel unbalanced.
+
+General styling to keep
+
+- Card design:
+  - Full bleed image with rounded corners.
+  - Dark gradient overlay from bottom to top to keep text readable:
+    - Example: linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0)).
+  - White title text with a slight shadow, clamped to 2 or 3 lines.
+  - Small rounded pill tag near the bottom left that shows the category, such as "Wedding" or "Home Decor".
+  - Entire card is clickable.
+
+- Background:
+  - Keep the existing soft, light background for the page so the cards look like they are sitting on a clean surface.
+
+Responsive layout rules
+
+MOBILE (up to 767px width)
+
+- Use a single column layout.
+- All cards are full width inside a safe padding of about 16 to 20 px on each side.
+- Keep the current stacked look:
+  - One card after another vertically.
+- Add consistent vertical spacing between cards (16 px).
+- Make sure the hero article looks like the first card in the list, but it does not need special sizing here.
+
+TABLET (768px to 1199px)
+
+- Use a 2 column grid for the main list.
+- Center the grid inside a max width container, for example max-width: 960px, margin: 0 auto.
+- At the top, show a hero card that spans both columns:
+  - It should be wider and slightly taller than regular cards.
+  - Below the hero, use a 2 column grid of cards.
+- Implement a simple masonry feel by varying card heights:
+  - Use CSS grid with:
+    - display: grid
+    - grid-template-columns: repeat(2, minmax(0, 1fr))
+    - gap: 16px
+  - Give some cards a class such as "card-tall" to make them taller than others.
+  - Do not break the reading order. The DOM order should still match the top to bottom reading order.
+
+DESKTOP (1200px and above)
+
+- Use a 3 column grid in a centered container:
+  - Example: max-width: 1200px, margin: 0 auto, padding: 24px left and right.
+  - grid-template-columns: repeat(3, minmax(0, 1fr))
+  - gap: 20px.
+
+- Hero behavior:
+  - The first hero article should span 2 columns in width and 2 rows in height (visually larger).
+  - Place it at the top left of the grid.
+  - The next few cards flow around it in the grid to create a natural masonry look.
+
+- Masonry behavior:
+  - Use grid-auto-rows with a base unit height, for example:
+    - grid-auto-rows: 180px
+  - For cards, use grid-row: span X to control their height:
+    - Normal card: span 2
+    - Tall feature card: span 3 or 4
+  - Assign tall spans to a few selected cards (for example every 5th or 6th card) to create an alternating rhythm similar to Pinterest.
+  - Make sure the visual layout still feels balanced and avoids big awkward empty gaps.
+
+Spacing and alignment
+
+- Horizontal gaps between columns: 16px on tablet, 20px on desktop.
+- Vertical gaps between cards: same as horizontal so the grid feels tight and consistent.
+- Border radius: use the same value on all cards, for example 16px.
+- The grid container should not stretch edge to edge on desktop. It should be centered with comfortable side margins so the layout feels premium rather than stretched.
+
+Text and tags
+
+- Keep the category tag visible on every card.
+- Place the tag above the bottom edge, left aligned, sitting on top of the gradient.
+- Titles should remain top left or bottom left consistently. Pick one position and use it for all cards so the layout feels intentional. Bottom left is preferred since the gradient is strongest there.
+
+Accessibility
+
+- Ensure text on top of images meets contrast guidelines with the gradient.
+- Preserve semantic structure:
+  - The list of posts should still be a section or main element.
+  - Each card should be an article element with a heading and link.
+
+Implementation notes
+
+- Do not change the underlying data fetching for the posts. Only change the HTML structure and CSS for the grid and cards.
+- Keep the current image URLs and content, but update class names and styles to achieve the new layout.
+- Test that the layout:
+  - Looks clean and scrollable on mobile.
+  - Feels like a balanced, intentional masonry grid on tablet and desktop.
+  - Does not create large awkward white gaps as seen in the current version.
+
+Update the existing blog home page component and stylesheet to follow these rules.

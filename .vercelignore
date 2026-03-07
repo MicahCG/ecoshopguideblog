@@ -1,0 +1,17 @@
+node_modules
+.env
+.env.local
+.git
+.cache
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist
+scripts
+backups
+attached_assets/*.psd
+attached_assets/*.ai
+.replit
+header-area.png

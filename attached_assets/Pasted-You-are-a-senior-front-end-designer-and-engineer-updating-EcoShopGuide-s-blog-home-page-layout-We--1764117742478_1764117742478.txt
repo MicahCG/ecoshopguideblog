@@ -1,0 +1,57 @@
+You are a senior front end designer and engineer updating EcoShopGuide's blog home page layout.
+
+We already have a working version of visual cards with image backgrounds, category tags (like "Home Decor" and "Wedding"), and titles overlaid on top. This is close to what we want on mobile, but the desktop layout looks awkward and not like a clean masonry grid.
+
+Your task is to refine the responsive layout while keeping the existing visual styling, and make the grid feel balanced and enjoyable to browse. Do NOT change the current mobile styles below 768px, only add or adjust layout rules for larger breakpoints.
+
+Goals
+
+1. Mobile should be simple and readable.
+2. Tablet and desktop should use a centered masonry style grid that feels like a Pinterest board.
+3. The hero article at the top should be clearly featured but not make the rest of the layout feel unbalanced.
+
+General styling to keep
+
+- Card design:
+  - Full bleed image with rounded corners.
+  - Dark gradient overlay from bottom to top to keep text readable:
+    - Example: linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0)).
+  - White title text with a slight shadow, clamped to 2 or 3 lines.
+  - Small rounded pill tag near the bottom left that shows the category, such as "Wedding" or "Home Decor".
+  - Entire card is clickable.
+
+- Background:
+  - Keep the existing soft, light background for the page so the cards look like they are sitting on a clean surface.
+
+Responsive layout rules
+
+MOBILE (up to 767px width)
+
+- Keep the current implementation and visual style. Do not change the structure of the mobile layout.
+- Use a single column layout.
+- All cards are full width inside a safe padding of about 16 to 20 px on each side.
+- Keep the current stacked look:
+  - One card after another vertically.
+- Add consistent vertical spacing between cards (16 px) if needed.
+- Make sure the hero article looks like the first card in the list, but it does not need special sizing here.
+
+TABLET (min-width: 768px and max-width: 1199px)
+
+- Use a media query at 768px to introduce a 2 column grid for the main list.
+- Center the grid inside a max width container, for example max-width: 960px, margin: 0 auto.
+- At the top, show a hero card that spans both columns:
+  - It should be wider and slightly taller than regular cards.
+  - Below the hero, use a 2 column grid of cards.
+- Implement a simple masonry feel by varying card heights:
+  - Use CSS grid with:
+    - display: grid
+    - grid-template-columns: repeat(2, minmax(0, 1fr))
+    - gap: 16px
+  - Give some cards a class such as "card-tall" to make them taller than others.
+  - Do not break the reading order. The DOM order should still match the top to bottom reading order.
+
+DESKTOP (min-width: 1200px)
+
+- Use another media query at 1200px to define the desktop layout.
+- Use a 3 column grid in a centered container:
+  - Example: max-width: 1200px, margi

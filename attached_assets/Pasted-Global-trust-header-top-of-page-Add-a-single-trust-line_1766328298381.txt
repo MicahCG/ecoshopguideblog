@@ -1,0 +1,69 @@
+Global trust header (top of page)
+
+Add a single trust line directly under the collection title and intro sentence.
+
+Format: star icons + average rating + total review count.
+
+Example copy: "★★★★☆ 4.7 average rating from 1,200+ happy homes"
+
+This is global across the collection, not per product.
+
+Section structure and “popular” highlight without badges
+
+For each section on the collection page:
+
+Place 1 standout product as the first item in that section.
+
+Add slightly more top padding or spacing above the first product card only (subtle emphasis).
+
+Keep the rest of the product grid identical (no new tags, ribbons, or badges).
+
+Add one helper line of text once per section, above the grid, not on product cards.
+
+Example: "Most loved picks for small dorm rooms"
+
+Keep it short, friendly, and specific to the section.
+
+Social proof microcopy under price (muted text)
+
+Under the price on product cards, add one short line of muted social proof text.
+
+Do not add icons or badges.
+
+Examples:
+
+"500+ saved on Pinterest"
+
+"Seen in 1,000+ cozy spaces"
+
+"A community favorite"
+
+If we do not have real counts, use ranges or soft phrasing (ex: "Hundreds saved on Pinterest") and keep it consistent.
+
+Testimonials strip (horizontal)
+
+Add a horizontal testimonial strip near the top of each collection page (below the global trust header, above the first section).
+
+3 to 6 short testimonials.
+
+Each testimonial includes: star rating + 1 sentence + first name + optional date.
+
+Keep it lightweight and scrollable on mobile, no modal, no long review blocks.
+
+Constraints / guardrails
+
+No badges, ribbons, “best seller” tags, discount stickers, or extra labels on product cards.
+
+Do not push products below the fold with large UI blocks.
+
+Maintain the current grid layout and spacing style.
+
+Acceptance criteria
+
+All collection pages show the global trust header.
+
+Each section shows one helper line and a subtly emphasized first product via spacing only.
+
+Each product card shows one muted social proof line under the price.
+
+Testimonials strip is visible and horizontally scrollable on mobile.

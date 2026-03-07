@@ -1,0 +1,128 @@
+You are enhancing existing collection pages by adding curated combination sections that help users visualize how products work together for real life moments and aesthetics.
+
+Goal
+Increase conversion by reducing decision fatigue and helping users see complete looks without overwhelming the page or disrupting the existing grid.
+
+Do not redesign the page. Add lightweight, repeatable sections that sit naturally within the current layout.
+
+Section concept
+
+Each curated combination section represents a moment or use case, not a product bundle.
+
+Examples of moments:
+
+Moving into a small apartment
+
+Cozy dorm room refresh
+
+Calm evening wind down corner
+
+First apartment living room
+
+Minimal eco bedroom setup
+
+Guest ready home refresh
+
+Section structure (required)
+
+Each curated combination section must include:
+
+A short section title
+Format:
+"[Moment or aesthetic], made simple"
+
+Examples:
+
+"Moving into a small apartment, made simple"
+
+"A cozy dorm corner, made simple"
+
+"A calm evening wind down, made simple"
+
+One short helper sentence
+This explains why these pieces work together.
+
+Examples:
+
+"These pieces work together to add warmth, texture, and calm without taking up space."
+
+"A balanced mix of lighting, texture, and soft accents for small rooms."
+
+A horizontal product row or compact grid
+
+Show 3 to 4 products only
+
+These products already exist in the catalog
+
+Do not create new product types or bundles
+
+Maintain existing product card style
+
+Optional subtle connector text above the products
+Examples:
+
+"Designed to layer together"
+
+"Chosen to work as a set"
+
+"Balanced for small spaces"
+
+No buttons like “Shop the look.” The products themselves remain clickable.
+
+Product selection rules
+
+When creating a curated combination:
+
+Choose products that naturally complement each other
+
+Mix categories when appropriate (example: lighting + textile + decor)
+
+Avoid price stacking with only high priced items
+
+Do not repeat the same product in multiple curated sections on the same page
+
+Typical mix:
+
+One anchor item (lamp, rug, statement decor)
+
+One soft texture (pillow, throw, pouf)
+
+One grounding or functional item (plant, basket, small table)
+
+Placement rules
+
+Insert curated combination sections between existing collection sections, not at the very top
+
+Limit to 1 or 2 curated sections per collection page initially
+
+Do not push primary product grids too far down
+
+Maintain existing typography and spacing system
+
+Copy tone and constraints
+
+Calm, helpful, and guiding
+
+No sales language
+
+No urgency
+
+No emojis
+
+No badges
+
+No discounts
+
+No “best seller” labels
+
+Write like a trusted friend helping someone set up their space.
+
+Acceptance criteria
+
+Each collection page includes at least one curated combination section
+
+Each section references a real life moment or aesthetic
+
+Products feel intentionally chosen together
+
+Page still feels lightweight and scrollable on mobile

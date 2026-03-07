@@ -1,0 +1,47 @@
+[
+  {
+    "imagePath": "/Users/giraudelc/Downloads/Projects/Ecoshopguide/generated-images/review-photos-wall-planter/review_1_amandaj.png",
+    "review": {
+      "title": "Perfect boho touch for my living room!",
+      "comment": "Finally found the perfect accent piece for above my couch! The walnut finish goes beautifully with my boho decor. I put some dried pampas grass in it and it looks amazing. The wood quality is great - you can see the real grain. It's compact (22cm) but makes such a statement.",
+      "rating": 5,
+      "reviewerName": "Priya"
+    }
+  },
+  {
+    "imagePath": "/Users/giraudelc/Downloads/Projects/Ecoshopguide/generated-images/review-photos-wall-planter/review_2_marcust.png",
+    "review": {
+      "title": "Love it as a propagation station!",
+      "comment": "I got the black one and it's perfect for propagating my pothos cuttings! The minimalist look goes great in my modern kitchen. You can see the roots growing through the glass which is so cool. The wood quality is solid and the matte black finish looks more expensive than it is.",
+      "rating": 5,
+      "reviewerName": "marcus"
+    }
+  },
+  {
+    "imagePath": "/Users/giraudelc/Downloads/Projects/Ecoshopguide/generated-images/review-photos-wall-planter/review_3_rachelk.png",
+    "review": {
+      "title": "Makes my bathroom feel like a spa",
+      "comment": "Put this grey one in my bathroom with some dried lavender and I love it! The grey color matches my bathroom perfectly. Makes the space feel more intentional and spa-like. Great size for a small bathroom.",
+      "rating": 5,
+      "reviewerName": "Mansi"
+    }
+  },
+  {
+    "imagePath": "/Users/giraudelc/Downloads/Projects/Ecoshopguide/generated-images/review-photos-wall-planter/review_4_jenniferm.png",
+    "review": {
+      "title": "Bought two - absolutely love the combo!",
+      "comment": "Got the walnut and the cream light wood and they look so good together above my nightstand! I love how the different wood tones complement each other. Put dried eucalyptus in one and dried lavender in the other. The wood quality on both is excellent.",
+      "rating": 5,
+      "reviewerName": "Jen"
+    }
+  },
+  {
+    "imagePath": "/Users/giraudelc/Downloads/Projects/Ecoshopguide/generated-images/review-photos-wall-planter/review_5_emmas.png",
+    "review": {
+      "title": "Simple and beautiful in my entryway",
+      "comment": "I keep this in my hallway with whatever flower is in season. The light wood is so pretty and Scandinavian. It's the first thing guests see when they come in and everyone asks about it! The tube holds enough water for a single stem to last almost a week.",
+      "rating": 5,
+      "reviewerName": "emma"
+    }
+  }
+]
