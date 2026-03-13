@@ -49,14 +49,18 @@ export default async function handler(
       });
     }
 
+    // Ensure products is an array (parse if it came in as a string)
+    const productsArray = typeof products === 'string' ? JSON.parse(products) : products;
+
     // Upsert blog post (insert or update on slug conflict)
+    // Use sql.json() to properly serialize the JSON array for PostgreSQL
     const result = await sql`
       INSERT INTO blogs (title, slug, intro, products, cta, featured, feature_image, category)
       VALUES (
         ${title},
         ${slug},
         ${intro},
-        ${JSON.stringify(products)}::jsonb,
+        ${sql.json(productsArray)},
         ${cta},
         ${featured || false},
         ${featureImage || null},
