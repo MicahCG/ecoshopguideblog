@@ -28,6 +28,13 @@ interface EditorialSection {
 
 type BlogContent = AffiliateProduct | EditorialSection;
 
+function formatDate(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 export default function BlogPost() {
   const params = useParams();
   const slug = params.slug as string;
@@ -105,7 +112,7 @@ export default function BlogPost() {
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                <span>January 2026</span>
+                <span>{formatDate(blog.createdAt)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
@@ -163,12 +170,11 @@ function EditorialSectionList({ sections, cta }: { sections: EditorialSection[];
                 >
                   {section.title}
                 </h2>
-                <p
-                  className="text-base sm:text-lg text-muted-foreground leading-relaxed mb-6"
+                <div
+                  className="text-base sm:text-lg text-muted-foreground leading-relaxed mb-6 prose prose-sm max-w-none"
                   data-testid={`section-description-${index}`}
-                >
-                  {section.description}
-                </p>
+                  dangerouslySetInnerHTML={{ __html: section.description }}
+                />
 
                 {/* Tip */}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
