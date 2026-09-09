@@ -51,10 +51,15 @@ const HOME_SECTION = `{% comment %} ${HOME_MARKER} {% endcomment %}
         <li>Delivery shown before purchase</li>
       </ul>
     </div>
-    <div class="ecg-home-hero__visual" aria-hidden="true">
-      <div class="ecg-home-tile ecg-home-tile--dorm"><span>Dorm<br>move-in</span></div>
-      <div class="ecg-home-tile ecg-home-tile--seasonal"><span>Fall<br>rituals</span></div>
-      <div class="ecg-home-orbit"></div>
+    <div class="ecg-home-hero__visual" aria-label="Explore featured collections">
+      <a class="ecg-home-image-card ecg-home-image-card--primary" href="/collections/dorm">
+        <img src="https://shopbambana.com/cdn/shop/files/214083c3fd1958de588b06905c45c44b.jpg?v=9169459994855730954" alt="Warm, thoughtfully styled dorm room" width="950" height="1425" loading="eager">
+        <span class="ecg-home-image-card__label"><small>Dorm inspiration</small><strong>Make move-in feel like home</strong></span>
+      </a>
+      <a class="ecg-home-image-card ecg-home-image-card--secondary" href="/collections/fall-halloween">
+        <img src="https://shopbambana.com/cdn/shop/files/f164469d3454a62b83aab65cb7340b0e.jpg?v=13141367968894612765" alt="Warm fall decor with natural textures" width="950" height="1425" loading="eager">
+        <span class="ecg-home-image-card__label"><small>Fall inspiration</small><strong>Bring the season indoors</strong></span>
+      </a>
     </div>
   </section>
 {% schema %}
@@ -239,6 +244,67 @@ body :is(.announcement-bar, .utility-bar) {
 .ecg-home-tile--seasonal { right: 4%; bottom: 0; z-index: 3; background: linear-gradient(155deg, #be7652 0%, #c99561 35%, #3f4e35 100%); transform: rotate(8deg); }
 .ecg-home-orbit { position: absolute; inset: 17% 12%; border: 1px solid rgba(36,84,66,.22); border-radius: 50%; transform: rotate(-18deg); }
 
+/* Editorial image cards replace the original decorative tiles. */
+.ecg-home-hero__visual {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr);
+  gap: clamp(.75rem, 2vw, 1.25rem);
+  align-items: stretch;
+  min-height: 0;
+}
+.ecg-home-image-card {
+  position: relative;
+  min-height: 390px;
+  overflow: hidden;
+  border: 1px solid var(--ecg-line);
+  border-radius: 24px;
+  box-shadow: 0 16px 38px rgba(45, 35, 26, .12);
+  color: #fff;
+  text-decoration: none;
+}
+.ecg-home-image-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 240ms ease;
+}
+.ecg-home-image-card::after {
+  position: absolute;
+  inset: 38% 0 0;
+  background: linear-gradient(180deg, transparent, rgba(28, 22, 17, .74));
+  content: "";
+}
+.ecg-home-image-card__label {
+  position: absolute;
+  right: 1.1rem;
+  bottom: 1.1rem;
+  left: 1.1rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .25rem;
+  line-height: 1.2;
+}
+.ecg-home-image-card__label small,
+.ecg-home-image-card__label strong {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+}
+.ecg-home-image-card__label small {
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.ecg-home-image-card__label strong {
+  max-width: 16ch;
+  font-size: clamp(1.15rem, 2vw, 1.65rem);
+  line-height: 1.05;
+}
+.ecg-home-image-card:hover img { transform: scale(1.025); }
+
 @media (hover: hover) {
   body :is(.card, .product-card):hover {
     box-shadow: 0 14px 32px rgba(23, 56, 47, 0.12);
@@ -323,6 +389,12 @@ body.template-product .ecg-product-rating { margin-top: 0.35rem; font-size: 0.92
 @media (max-width: 749px) {
   body { font-size: 16px; }
 
+  /* Helio's transparent-header rule pulls the first section underneath the
+     navigation. Keep mobile page titles fully visible across templates. */
+  body:has(.header[transparent]) .content-for-layout > .shopify-section:first-child {
+    margin-top: var(--header-height, 79px) !important;
+  }
+
   body :is(.header, .site-header) { padding-block: 9px; }
   body :is(.grid, .product-grid) { gap: 12px; }
   body :is(.card, .product-card) { border-radius: 14px; }
@@ -343,6 +415,11 @@ body.template-product .ecg-product-rating { margin-top: 0.35rem; font-size: 0.92
   .ecg-home-tile { width: min(48vw, 190px); padding: 0.9rem; border-width: 7px; border-radius: 30% 30% 9% 9%; }
   .ecg-home-tile--dorm { left: 7%; }
   .ecg-home-tile--seasonal { right: 7%; }
+  .ecg-home-hero__visual { grid-template-columns: 1fr; gap: .85rem; }
+  .ecg-home-image-card { min-height: 220px; }
+  .ecg-home-image-card--primary { min-height: 340px; }
+  .ecg-home-image-card--secondary { min-height: 190px; }
+  .ecg-home-image-card__label { right: .9rem; bottom: .9rem; left: .9rem; }
 }
 `;
 
